@@ -67,27 +67,31 @@ telemetry = {
     "pe_pnl": 0
 }
 
-def get_next_tuesday():
-    today = datetime.now(IST)
+def get_nearest_expiry(df, symbol="NIFTY"):
+    today = datetime.now(IST).date()
 
-    days_ahead = 1 - today.weekday()  # Tuesday = 1
+    expiries = (
+        df[df["UNDERLYING_SYMBOL"] == symbol]["SM_EXPIRY_DATE"]
+        .dropna()
+        .dt.date
+        .unique()
+    )
 
-    if days_ahead < 0:
-        days_ahead += 7
+    expiries = sorted(expiries)
 
-    # If today is Tuesday after market hours → next expiry
-    if days_ahead == 0 and today.hour >= 15:
-        days_ahead = 7
+    for exp in expiries:
+        if exp >= today:
+            return exp.strftime("%Y-%m-%d")
 
-    next_tuesday = today + timedelta(days=days_ahead)
-    return next_tuesday.strftime("%Y-%m-%d")
+    return expiries[0].strftime("%Y-%m-%d")
 
 
-def get_high_delta_strikes(access_token, client_id):
+def get_high_delta_strikes(access_token, client_id,fno_df):
+
     payload = {
         "UnderlyingScrip": 13,   # NIFTY
         "UnderlyingSeg": "IDX_I",
-        "Expiry": get_next_tuesday()
+        "Expiry": get_nearest_expiry(fno_df)
     }
 
     headers = {
@@ -95,6 +99,8 @@ def get_high_delta_strikes(access_token, client_id):
         "client-id": client_id,
         "Content-Type": "application/json"
     }
+
+    print("Payload:" ,payload)
 
     response = requests.post(DHAN_OPTION_CHAIN_URL, json=payload, headers=headers)
     data = response.json()
@@ -304,7 +310,7 @@ def init_state():
 
 wait_for_start()
 
-ce_strike, pe_strike = get_high_delta_strikes(access_token, CLIENT_ID)
+ce_strike, pe_strike = get_high_delta_strikes(access_token, CLIENT_ID,fno_df)
 
 
 CE_STRIKE = int(ce_strike)
