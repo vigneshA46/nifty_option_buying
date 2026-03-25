@@ -343,7 +343,7 @@ logtradeleg(
     COMMON_ID,
     "CE",
     f"NIFTY CE {CE_STRIKE}",
-    ATM,
+    CE_STRIKE,
     str(today)
 )
 
@@ -352,7 +352,7 @@ logtradeleg(
     COMMON_ID,
     "PE",
     f"NIFTY PE {PE_STRIKE}",
-    ATM,
+    PE_STRIKE,
     str(today)
 )
 
@@ -378,7 +378,7 @@ def get_first_candle_mark(security_id):
     for i in range(len(timestamps)):
         ts = datetime.fromtimestamp(timestamps[i], IST)  
 
-        if ts.hour == 9 and ts.minute == 15:
+        if ts.time() >= dtime(9, 15):
             mark = float(closes[i])
             print(f"📍 HIST MARK {security_id} @ {mark}")
             return mark
