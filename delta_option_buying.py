@@ -469,7 +469,7 @@ def handle_leg(name, token, candle, state, ltp):
 
             entry_price = ltp   
 
-            state["entry_price"] = entry_price
+            state["entry_price"] = float(entry_price)
             state["entry_time"] = datetime.now(IST).isoformat()
 
             state["position"] = True
@@ -651,7 +651,7 @@ def on_message(msg):
         return
 
     token = str(msg["security_id"])
-    ltp = msg.get("LTP", 0)
+    ltp = float(msg.get("LTP", 0) or 0)
 
     builder = builders.get(token)
 
