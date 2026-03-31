@@ -69,6 +69,36 @@ telemetry = {
     "pe_pnl": 0
 }
 
+def get_first_candle_mark(security_id):
+
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+   
+
+    idx= dhan.intraday_minute_data(
+        security_id=security_id,
+        exchange_segment="NSE_FNO",
+        instrument_type="OPTIDX",
+        from_date=today,
+        to_date=today
+    )
+    print("Today :",type(today),today)
+
+    data = idx.get("data", {})
+    closes = data.get("close", [])
+    timestamps = data.get("timestamp", [])
+
+    for i in range(len(timestamps)):
+        ts = datetime.fromtimestamp(timestamps[i], IST)  
+
+        if ts.hour == 9 and ts.minute == 15:
+            mark = float(closes[i])
+            print(f"📍 HIST MARK {security_id} @ {mark}")
+            return mark
+
+    print("❌ 09:15 candle not found")
+    return None
+
+
 def get_next_tuesday():
     today = datetime.now(IST)
 
@@ -305,7 +335,7 @@ def init_state():
         "trailing_active": False
     }
 
-
+wait_for_start()
 
 ce_strike, pe_strike = get_high_delta_strikes(access_token, CLIENT_ID)
 
@@ -313,9 +343,9 @@ ce_strike, pe_strike = get_high_delta_strikes(access_token, CLIENT_ID)
 CE_STRIKE = int(ce_strike)
 PE_STRIKE = int(pe_strike)
 
-print(CE_TOKEN)
+""" print(CE_TOKEN)
 print(PE_TOKEN)
-
+ """
 
 
 # =========================
@@ -781,7 +811,7 @@ for t in TOKENS:
     subscribe(t, on_tick)
  """
 
-feed = marketfeed.DhanFeed(CLIENT_ID, ACCESS_TOKEN, instruments, "v2")
+feed = marketfeed.DhanFeed(CLIENT_ID, access_token, instruments, "v2")
  
 while True:
     try:
