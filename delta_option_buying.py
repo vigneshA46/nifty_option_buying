@@ -19,6 +19,7 @@ from queue import Queue
 # CONFIG
 # =========================
 trade_log_queue = Queue()
+
 def trade_log_worker():
     while True:
         payload = trade_log_queue.get()
@@ -29,6 +30,7 @@ def trade_log_worker():
         finally:
             trade_log_queue.task_done()
 
+threading.Thread(target=trade_log_worker, daemon=True).start()
 
 ATM = None 
 TRADE_LOG_URL = "https://dreaminalgo-backend-production.up.railway.app/api/paperlogger/event"
@@ -67,31 +69,27 @@ telemetry = {
     "pe_pnl": 0
 }
 
-def get_nearest_expiry(df, symbol="NIFTY"):
-    today = datetime.now(IST).date()
+def get_next_tuesday():
+    today = datetime.now(IST)
 
-    expiries = (
-        df[df["UNDERLYING_SYMBOL"] == symbol]["SM_EXPIRY_DATE"]
-        .dropna()
-        .dt.date
-        .unique()
-    )
+    days_ahead = 1 - today.weekday()  # Tuesday = 1
 
-    expiries = sorted(expiries)
+    if days_ahead < 0:
+        days_ahead += 7
 
-    for exp in expiries:
-        if exp >= today:
-            return exp.strftime("%Y-%m-%d")
+    # If today is Tuesday after market hours → next expiry
+    if days_ahead == 0 and today.hour >= 15:
+        days_ahead = 7
 
-    return expiries[0].strftime("%Y-%m-%d")
+    next_tuesday = today + timedelta(days=days_ahead)
+    return next_tuesday.strftime("%Y-%m-%d")
 
 
-def get_high_delta_strikes(access_token, client_id,fno_df):
-
+def get_high_delta_strikes(access_token, client_id):
     payload = {
         "UnderlyingScrip": 13,   # NIFTY
         "UnderlyingSeg": "IDX_I",
-        "Expiry": get_nearest_expiry(fno_df)
+        "Expiry": get_next_tuesday()
     }
 
     headers = {
@@ -99,8 +97,6 @@ def get_high_delta_strikes(access_token, client_id,fno_df):
         "client-id": client_id,
         "Content-Type": "application/json"
     }
-
-    print("Payload:" ,payload)
 
     response = requests.post(DHAN_OPTION_CHAIN_URL, json=payload, headers=headers)
     data = response.json()
@@ -215,7 +211,7 @@ def log_event(leg_name, token, action, price, remark=""):
         print("EVENT LOG ERROR:", e)
 
 
-def logtradeleg(strategyid, leg, symbol, strike_price, date):
+def logtradeleg(strategyid, leg, symbol, strike_price, date, token):
     url = "https://dreaminalgo-backend-production.up.railway.app/api/tradelegs/create"
     
     payload = {
@@ -223,7 +219,8 @@ def logtradeleg(strategyid, leg, symbol, strike_price, date):
         "leg": leg,
         "symbol": symbol,
         "strike_price": strike_price,
-        "date": date
+        "date": date,
+        "token": token
     }
 
     try:
@@ -308,16 +305,18 @@ def init_state():
         "trailing_active": False
     }
 
-wait_for_start()
 
-ce_strike, pe_strike = get_high_delta_strikes(access_token, CLIENT_ID,fno_df)
+
+ce_strike, pe_strike = get_high_delta_strikes(access_token, CLIENT_ID)
 
 
 CE_STRIKE = int(ce_strike)
 PE_STRIKE = int(pe_strike)
 
-print(CE_STRIKE)
-print(PE_STRIKE)
+print(CE_TOKEN)
+print(PE_TOKEN)
+
+
 
 # =========================
 # OPTION SELECTION
@@ -342,49 +341,21 @@ builders = {
 logtradeleg(
     COMMON_ID,
     "CE",
-    f"NIFTY CE {CE_STRIKE}",
-    CE_STRIKE,
-    str(today)
+    f"NIFTY CE {ATM}",
+    ATM,
+    str(today),
+    CE_ID
 )
 
 # Log PE leg
 logtradeleg(
     COMMON_ID,
     "PE",
-    f"NIFTY PE {PE_STRIKE}",
-    PE_STRIKE,
-    str(today)
+    f"NIFTY PE {ATM}",
+    ATM,
+    str(today),
+    PE_ID
 )
-
-
-def get_first_candle_mark(security_id):
-
-    today = datetime.now(IST).strftime("%Y-%m-%d")
-   
-
-    idx= dhan.intraday_minute_data(
-        security_id=security_id,
-        exchange_segment="NSE_FNO",
-        instrument_type="OPTIDX",
-        from_date=today,
-        to_date=today
-    )
-    print("Today :",type(today),today)
-
-    data = idx.get("data", {})
-    closes = data.get("close", [])
-    timestamps = data.get("timestamp", [])
-
-    for i in range(len(timestamps)):
-        ts = datetime.fromtimestamp(timestamps[i], IST)  
-
-        if ts.time() >= dtime(9, 15):
-            mark = float(closes[i])
-            print(f"📍 HIST MARK {security_id} @ {mark}")
-            return mark
-
-    print("❌ 09:15 candle not found")
-    return None
 
 
 # =========================
@@ -469,12 +440,12 @@ def handle_leg(name, token, candle, state, ltp):
 
             entry_price = ltp   
 
-            state["entry_price"] = float(entry_price)
+            state["entry_price"] = entry_price
             state["entry_time"] = datetime.now(IST).isoformat()
 
             state["position"] = True
             state["tsl"] = entry_price + 30
-            state["sl"] = None
+            state["sl"] = entry_price - 10 
             state["trailing_active"] = False
 
             print("🟢 BUY", name, entry_price)
@@ -572,7 +543,7 @@ def handle_leg(name, token, candle, state, ltp):
 
 def universal_exit_check(ce_ltp, pe_ltp):
 
-    global combined_pnl , pnl
+    global combined_pnl
 
     ce_running = 0
     pe_running = 0
@@ -584,7 +555,6 @@ def universal_exit_check(ce_ltp, pe_ltp):
         pe_running = (pe_ltp - pe_state["entry_price"]) * LOTSIZE * pe_state["lot"]
 
     total = ce_state["pnl"] + pe_state["pnl"] + ce_running + pe_running
-    combined_pnl = total
 
     if total >= TARGET_POINTS*65:
 
@@ -647,11 +617,13 @@ def universal_exit_check(ce_ltp, pe_ltp):
 
 def on_message(msg):
 
+    global combined_pnl
+
     if msg.get("type") != "Quote Data":
         return
 
     token = str(msg["security_id"])
-    ltp = float(msg.get("LTP", 0) or 0)
+    ltp = msg.get("LTP", 0)
 
     builder = builders.get(token)
 
@@ -667,7 +639,84 @@ def on_message(msg):
         telemetry["ce_ltp"] = float(ltp or 0)
 
     if token == PE_ID:
-        telemetry["pe_ltp"] = float(ltp or 0)  
+        telemetry["pe_ltp"] = float(ltp or 0)
+
+# =========================
+# Entry +8 Breakout
+# =========================
+
+    if token == CE_ID:
+        state = ce_state
+        leg_name = "CE"
+    elif token == PE_ID:
+        state = pe_state
+        leg_name = "PE"
+    else:
+        state = None
+
+    if state and not state["position"] and not state["trading_disabled"]:
+
+        if ltp >= state["marked"] + 8:
+
+            entry_price = ltp
+
+            state["entry_price"] = entry_price
+            state["entry_time"] = datetime.now(IST).isoformat()
+
+            state["position"] = True
+            state["tsl"] = entry_price + 30
+            state["sl"] = entry_price - 10
+            state["trailing_active"] = False
+
+            print("🟢 BUY (TICK +8)", leg_name, entry_price)
+
+            log_trade_event(
+                event_type="ENTRY",
+                leg_name=leg_name,
+                token=token,
+                symbol="NIFTY",
+                side="BUY",
+                lot=state["lot"],
+                price=entry_price,
+                reason="TICK +8 ENTRY",
+                pnl=state["pnl"],
+                cum_pnl=combined_pnl
+            )
+
+# =========================
+# -8 EXIT (TICK LEVEL)
+# =========================
+    if state and state["position"]:
+
+        if ltp <= state["marked"] - 8:
+
+            exit_price = ltp
+
+            pnl = (exit_price - state["entry_price"]) * LOTSIZE * state["lot"]
+
+            state["pnl"] += pnl
+            combined_pnl += pnl
+
+            print("🔴 EXIT (-8 TICK)", leg_name, exit_price)
+
+            log_trade_event(
+                event_type="EXIT",
+                leg_name=leg_name,
+                token=token,
+                symbol=SYMBOL,
+                side="SELL",
+                lot=state["lot"],
+                price=exit_price,
+                reason="TICK EXIT -8",
+                pnl=state["pnl"],
+                cum_pnl=combined_pnl
+            )
+
+            state["position"] = False
+            state["lot"] += 1
+
+            return  
+
 
     # =========================
     # RUN UNIVERSAL EXIT (TICK LEVEL)
@@ -732,7 +781,7 @@ for t in TOKENS:
     subscribe(t, on_tick)
  """
 
-feed = marketfeed.DhanFeed(CLIENT_ID, access_token, instruments, "v2")
+feed = marketfeed.DhanFeed(CLIENT_ID, ACCESS_TOKEN, instruments, "v2")
  
 while True:
     try:
