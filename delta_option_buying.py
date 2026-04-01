@@ -510,7 +510,7 @@ def handle_leg(name, token, candle, state, ltp):
             print("📈 TSL MOVED", name, state["tsl"], "SL:", state["sl"])
 
     if state["position"] and state["trailing_active"]:
-        if close < state["sl"]:   # IMPORTANT → candle close
+        if ltp < state["sl"]:   # IMPORTANT → candle close
             exit_price = ltp
 
             pnl = (exit_price - state["entry_price"]) * LOTSIZE * state["lot"]
