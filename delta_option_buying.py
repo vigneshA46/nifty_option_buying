@@ -382,7 +382,7 @@ logtradeleg(
     COMMON_ID,
     "PE",
     f"NIFTY PE {PE_STRIKE}",
-    PE,
+    PE_STRIKE,
     str(today),
     PE_ID
 )
