@@ -24,7 +24,7 @@ FNO_MASTER_URL   = "https://api.dhan.co/v2/instrument/NSE_FNO"
 
 IST = pytz.timezone("Asia/Kolkata")
 
-TRADE_DATE = "2026-01-22"
+TRADE_DATE = datetime.now(IST).strftime("%Y-%m-%d")
 TRADE_START = time(9, 14)
 TRADE_END   = time(15, 20)
 

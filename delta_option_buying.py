@@ -49,7 +49,7 @@ IST = pytz.timezone("Asia/Kolkata")
 DHAN_OPTION_CHAIN_URL = "https://api.dhan.co/v2/optionchain"
 
 
-TRADE_START = dtime(9, 16)
+TRADE_START = dtime(9, 15)
 TRADE_END   = dtime(15, 20)
 
 TARGET_POINTS = 100
