@@ -371,8 +371,8 @@ builders = {
 logtradeleg(
     COMMON_ID,
     "CE",
-    f"NIFTY CE {ATM}",
-    ATM,
+    f"NIFTY CE {CE_STRIKE}",
+    CE_STRIKE,
     str(today),
     CE_ID
 )
@@ -381,8 +381,8 @@ logtradeleg(
 logtradeleg(
     COMMON_ID,
     "PE",
-    f"NIFTY PE {ATM}",
-    ATM,
+    f"NIFTY PE {PE_STRIKE}",
+    PE_STRIKE,
     str(today),
     PE_ID
 )
