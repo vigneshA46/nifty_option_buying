@@ -90,7 +90,7 @@ def get_first_candle_mark(security_id):
     for i in range(len(timestamps)):
         ts = datetime.fromtimestamp(timestamps[i], IST)  
 
-        if ts.hour == 9 and ts.minute == 15:
+        if ts.hour == 9 and 15 <= ts.minute <= 17:
             mark = float(closes[i])
             print(f"📍 HIST MARK {security_id} @ {mark}")
             return mark
@@ -382,7 +382,7 @@ logtradeleg(
     COMMON_ID,
     "PE",
     f"NIFTY PE {PE_STRIKE}",
-    PE_STRIKE,
+    PE,
     str(today),
     PE_ID
 )
@@ -685,12 +685,7 @@ def on_message(msg):
         state = None
 
     if state and state["marked"] is None:
-        state["marked"] = get_first_candle_mark(token)
-
-        if state["marked"] is None:
-            return
-        else:
-            print(f"Late mark fetched {leg_name}:", state["marked"])
+        return
 
 
     if state and not state["position"] and not state["trading_disabled"]:
