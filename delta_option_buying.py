@@ -653,7 +653,7 @@ def on_message(msg):
         return
 
     token = str(msg["security_id"])
-    ltp = msg.get("LTP", 0)
+    ltp = float(msg.get("LTP", 0)or 0)
 
     builder = builders.get(token)
 
@@ -683,6 +683,10 @@ def on_message(msg):
         leg_name = "PE"
     else:
         state = None
+
+    if state and state["marked"] is None:
+        return
+
 
     if state and not state["position"] and not state["trading_disabled"]:
 
