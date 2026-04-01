@@ -585,6 +585,7 @@ def universal_exit_check(ce_ltp, pe_ltp):
         pe_running = (pe_ltp - pe_state["entry_price"]) * LOTSIZE * pe_state["lot"]
 
     total = ce_state["pnl"] + pe_state["pnl"] + ce_running + pe_running
+    combined_pnl=total
 
     if total >= TARGET_POINTS*65:
 
@@ -688,7 +689,7 @@ def on_message(msg):
         return
 
 
-    if state and not state["position"] and not state["trading_disabled"]:
+    if state and not state["position"] and not state["trading_disabled"] and not state["rearm_required"]:
 
         if ltp >= state["marked"] + 8:
 
@@ -701,6 +702,7 @@ def on_message(msg):
             state["tsl"] = entry_price + 30
             state["sl"] = entry_price - 10
             state["trailing_active"] = False
+
 
             print("🟢 BUY (TICK +8)", leg_name, entry_price)
 
