@@ -61,12 +61,12 @@ telemetry = {
     "strategy_id": COMMON_ID,
     "run_id": COMMON_ID,
     "status": "RUNNING",
-    "pnl": 0,
-    "pnl_percentage": 0,
-    "ce_ltp": 0,
-    "pe_ltp": 0,
-    "ce_pnl": 0,
-    "pe_pnl": 0
+    "pnl": 0.0,
+    "pnl_percentage": 0.0,
+    "ce_ltp": 0.0,
+    "pe_ltp": 0.0,
+    "ce_pnl": 0.0,
+    "pe_pnl": 0.0
 }
 
 def get_first_candle_mark(security_id):
