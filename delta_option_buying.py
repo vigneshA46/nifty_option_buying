@@ -685,7 +685,12 @@ def on_message(msg):
         state = None
 
     if state and state["marked"] is None:
-        return
+        state["marked"] = get_first_candle_mark(token)
+
+        if state["marked"] is None:
+            return
+        else:
+            print(f"Late mark fetched {leg_name}:", state["marked"])
 
 
     if state and not state["position"] and not state["trading_disabled"]:
